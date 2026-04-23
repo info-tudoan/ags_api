@@ -47,13 +47,21 @@ EOF
 
 cd /var/www/html
 
-# Run migrations
-php artisan migrate --force
+# Wait for DB to be ready (up to 30s)
+echo "Waiting for database..."
+for i in $(seq 1 30); do
+    php artisan db:monitor --max=1 > /dev/null 2>&1 && break
+    echo "  attempt $i/30..."
+    sleep 2
+done
+
+# Run migrations (non-fatal — app still starts if DB unreachable)
+php artisan migrate --force || echo "WARNING: migrate failed, continuing..."
 
 # Cache config for performance
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
+php artisan config:cache || true
+php artisan route:cache || true
+php artisan view:cache || true
 
 # Fix storage permissions after any mounts
 chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
