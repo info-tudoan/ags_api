@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//d/Infodation/Claude/Coding/Source/**)",
+      "Bash(composer create-project *)",
+      "Bash(composer require *)",
+      "Bash(php artisan *)",
+      "Bash(curl -s http://localhost:8000/up)",
+      "Bash(curl -s -X POST http://localhost:8000/api/auth/register -H 'Content-Type: application/json' -d '{ *)",
+      "Bash(composer dump-autoload *)",
+      "Bash(curl -s -X POST http://localhost:8000/api/auth/register -H 'Content-Type: application/json' -d '{\"name\":\"Test Employee\",\"email\":\"emp1@test.com\",\"password\":\"password123\",\"phone\":\"0123456789\",\"role\":\"employee\"}')",
+      "Bash(pkill -f \"php artisan serve\")",
+      "Bash(curl -s -X POST http://localhost:8000/api/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"emp1@test.com\",\"password\":\"password123\"}')",
+      "Bash(curl -s -X POST http://localhost:8000/api/auth/login -H \"Content-Type: application/json\" -d \"{\\\\\"email\\\\\":\\\\\"admin@gps.test\\\\\",\\\\\"password\\\\\":\\\\\"password\\\\\"}\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d['token']\\)\")",
+      "Bash(npx tsc *)",
+      "Bash(cmd /c \"cd /d D:\\\\Infodation\\\\Claude\\\\Coding\\\\Source\\\\ags_fe && npx tsc --noEmit 2>&1\")",
+      "Bash(cmd /c \"npx --prefix D:\\\\Infodation\\\\Claude\\\\Coding\\\\Source\\\\ags_fe tsc -p D:\\\\Infodation\\\\Claude\\\\Coding\\\\Source\\\\ags_fe\\\\tsconfig.json --noEmit 2>&1\")",
+      "Bash(xargs grep *)",
+      "Bash(cmd /c \"cd /d D:\\\\Infodation\\\\Claude\\\\Coding\\\\Source\\\\ags_fe && npx vite build 2>&1 | head -50\")",
+      "Bash(node -e ' *)",
+      "Bash(npx kill-port *)",
+      "Bash(npm run *)",
+      "Bash(taskkill /F /IM node.exe)",
+      "Bash(cmd /c \"start /min cmd /c \\\\\"cd /d D:\\\\Infodation\\\\Claude\\\\Coding\\\\Source\\\\ags_fe && npm run dev\\\\\"\")",
+      "PowerShell(Stop-Process -Force)",
+      "PowerShell(Start-Process -FilePath \"cmd.exe\" -ArgumentList \"/c cd /d `\"D:\\\\Infodation\\\\Claude\\\\Coding\\\\Source\\\\ags_fe`\" && npm run dev\" -WindowStyle Normal)"
+    ]
+  }
+}

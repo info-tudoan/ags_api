@@ -1,0 +1,1029 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "GPS Attendance System API",
+    "description": "REST API for GPS-based employee attendance tracking with geofencing, shift management, and real-time location monitoring",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Infodation",
+      "email": "support@infodation.nl"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000",
+      "description": "Development server"
+    },
+    {
+      "url": "https://api.attendance.example.com",
+      "description": "Production server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT token from /api/auth/login"
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "name": {
+            "type": "string",
+            "example": "John Doe"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "john@example.com"
+          },
+          "phone": {
+            "type": "string",
+            "example": "0123456789"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["employee", "team_lead", "admin", "hr"],
+            "example": "employee"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "inactive"],
+            "example": "active"
+          },
+          "mfa_enabled": {
+            "type": "boolean",
+            "example": false
+          },
+          "employee_id": {
+            "type": "string",
+            "example": "EMP001"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "LocationData": {
+        "type": "object",
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "format": "double",
+            "example": 21.0285
+          },
+          "longitude": {
+            "type": "number",
+            "format": "double",
+            "example": 105.8542
+          },
+          "accuracy": {
+            "type": "integer",
+            "example": 15
+          }
+        }
+      },
+      "WorkZone": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string",
+            "example": "Parking Lot A"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["primary", "secondary", "break"],
+            "example": "primary"
+          },
+          "description": {
+            "type": "string"
+          },
+          "coordinates": {
+            "type": "object",
+            "description": "Polygon or circle coordinates"
+          },
+          "radius": {
+            "type": "integer",
+            "description": "Radius in meters for circle zones"
+          },
+          "min_gps_accuracy": {
+            "type": "integer",
+            "example": 20
+          }
+        }
+      },
+      "AttendanceRecord": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "user_id": {
+            "type": "integer"
+          },
+          "shift_assignment_id": {
+            "type": "integer"
+          },
+          "check_in_time": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "check_out_time": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "check_in_location": {
+            "$ref": "#/components/schemas/LocationData"
+          },
+          "check_out_location": {
+            "$ref": "#/components/schemas/LocationData",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": ["on_time", "early", "delayed", "absent"],
+            "example": "on_time"
+          },
+          "total_time_in_zone": {
+            "type": "integer",
+            "description": "Minutes"
+          }
+        }
+      },
+      "Shift": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "shift_template_id": {
+            "type": "integer"
+          },
+          "shift_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "team_lead_id": {
+            "type": "integer"
+          }
+        }
+      },
+      "MonthlyReport": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "user_id": {
+            "type": "integer"
+          },
+          "month": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-04"
+          },
+          "total_work_days": {
+            "type": "integer"
+          },
+          "total_hours_worked": {
+            "type": "number"
+          },
+          "total_delays_minutes": {
+            "type": "integer"
+          },
+          "total_deducted_minutes": {
+            "type": "integer"
+          },
+          "effective_hours": {
+            "type": "number"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "errors": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/auth/register": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Register a new user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "email", "password", "role"],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 8
+                  },
+                  "phone": {
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": ["employee", "team_lead", "admin", "hr"]
+                  },
+                  "employee_id": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "user": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Login with credentials",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful, returns JWT token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "token": {
+                      "type": "string",
+                      "description": "JWT token for API requests"
+                    },
+                    "user": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials"
+          }
+        }
+      }
+    },
+    "/api/auth/mfa/setup": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Setup MFA - returns QR code secret",
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "MFA setup initiated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "secret": {
+                      "type": "string",
+                      "description": "Base32 encoded secret for authenticator app"
+                    },
+                    "qr_code_url": {
+                      "type": "string",
+                      "description": "URL to QR code image"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/mfa/verify": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Verify MFA and enable 2FA",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["token", "secret"],
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "description": "6-digit code from authenticator app"
+                  },
+                  "secret": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "MFA enabled successfully"
+          },
+          "401": {
+            "description": "Invalid MFA token"
+          }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": ["Authentication"],
+        "summary": "Get current authenticated user",
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Current user data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/employee/dashboard": {
+      "get": {
+        "tags": ["Employee"],
+        "summary": "Get employee dashboard with shift and attendance info",
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Dashboard data"
+          }
+        }
+      }
+    },
+    "/api/employee/check-in": {
+      "post": {
+        "tags": ["Employee"],
+        "summary": "Check-in with GPS location",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["shift_assignment_id", "latitude", "longitude", "accuracy"],
+                "properties": {
+                  "shift_assignment_id": {
+                    "type": "integer"
+                  },
+                  "latitude": {
+                    "type": "number"
+                  },
+                  "longitude": {
+                    "type": "number"
+                  },
+                  "accuracy": {
+                    "type": "integer",
+                    "description": "GPS accuracy in meters"
+                  },
+                  "wifi_bssid": {
+                    "type": "string"
+                  },
+                  "device_info": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Check-in successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "record": {
+                      "$ref": "#/components/schemas/AttendanceRecord"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (poor GPS accuracy, outside zone, etc)"
+          }
+        }
+      }
+    },
+    "/api/employee/check-out": {
+      "post": {
+        "tags": ["Employee"],
+        "summary": "Check-out with GPS location",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["attendance_record_id", "latitude", "longitude", "accuracy"],
+                "properties": {
+                  "attendance_record_id": {
+                    "type": "integer"
+                  },
+                  "latitude": {
+                    "type": "number"
+                  },
+                  "longitude": {
+                    "type": "number"
+                  },
+                  "accuracy": {
+                    "type": "integer"
+                  },
+                  "wifi_bssid": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Check-out successful"
+          }
+        }
+      }
+    },
+    "/api/employee/location/current": {
+      "get": {
+        "tags": ["Employee"],
+        "summary": "Get current location status",
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Current location data"
+          }
+        }
+      }
+    },
+    "/api/employee/location/history": {
+      "get": {
+        "tags": ["Employee"],
+        "summary": "Get location history for date range",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "start_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Location history"
+          }
+        }
+      }
+    },
+    "/api/employee/reports/monthly": {
+      "get": {
+        "tags": ["Employee"],
+        "summary": "Get monthly attendance report",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "month",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2026-04"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Monthly report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "report": {
+                      "$ref": "#/components/schemas/MonthlyReport"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/team-lead/shifts": {
+      "post": {
+        "tags": ["Team Lead"],
+        "summary": "Create shifts for date range",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["shift_template_id", "start_date", "end_date"],
+                "properties": {
+                  "shift_template_id": {
+                    "type": "integer"
+                  },
+                  "start_date": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "end_date": {
+                    "type": "string",
+                    "format": "date"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Shifts created"
+          }
+        }
+      },
+      "get": {
+        "tags": ["Team Lead"],
+        "summary": "List shifts",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "start_date",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Shifts list"
+          }
+        }
+      }
+    },
+    "/api/team-lead/shifts/{shift}/assign-employees": {
+      "post": {
+        "tags": ["Team Lead"],
+        "summary": "Assign employees to shift",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "shift",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "assignments": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "user_id": {
+                          "type": "integer"
+                        },
+                        "zone_id": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Employees assigned"
+          }
+        }
+      }
+    },
+    "/api/team-lead/attendance": {
+      "get": {
+        "tags": ["Team Lead"],
+        "summary": "Get team attendance summary",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Team attendance records"
+          }
+        }
+      }
+    },
+    "/api/admin/zones": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "List all work zones",
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "List of work zones"
+          }
+        }
+      },
+      "post": {
+        "tags": ["Admin"],
+        "summary": "Create new work zone",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "type", "coordinates"],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": ["primary", "secondary", "break"]
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "coordinates": {
+                    "type": "object"
+                  },
+                  "radius": {
+                    "type": "integer"
+                  },
+                  "min_gps_accuracy": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Zone created"
+          }
+        }
+      }
+    },
+    "/api/admin/zones/{zone}": {
+      "patch": {
+        "tags": ["Admin"],
+        "summary": "Update work zone",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "zone",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Zone updated"
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Admin"],
+        "summary": "Delete work zone",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "zone",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Zone deleted"
+          }
+        }
+      }
+    },
+    "/api/admin/exceptions": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "List attendance exceptions",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["pending", "approved", "rejected"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Exceptions list"
+          }
+        }
+      }
+    },
+    "/api/admin/exceptions/{exception}/approve": {
+      "patch": {
+        "tags": ["Admin"],
+        "summary": "Approve exception",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "exception",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Exception approved"
+          }
+        }
+      }
+    },
+    "/api/admin/users": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "List all users",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "role",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Users list"
+          }
+        }
+      }
+    },
+    "/api/hr/reports": {
+      "get": {
+        "tags": ["HR"],
+        "summary": "List monthly reports",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "month",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reports list"
+          }
+        }
+      }
+    },
+    "/api/hr/reports/{user}/generate": {
+      "post": {
+        "tags": ["HR"],
+        "summary": "Generate monthly report for user",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "user",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["month"],
+                "properties": {
+                  "month": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2026-04"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Report generated"
+          }
+        }
+      }
+    },
+    "/api/hr/statistics": {
+      "get": {
+        "tags": ["HR"],
+        "summary": "Get system statistics",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "start_date",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "System statistics"
+          }
+        }
+      }
+    }
+  }
+}
