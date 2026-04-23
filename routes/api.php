@@ -5,7 +5,31 @@ use App\Http\Controllers\Api\EmployeeController;
 use App\Http\Controllers\Api\TeamLeadController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\HrController;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
+
+// Setup endpoint — protected by secret key, for initial deployment only
+Route::post('setup', function (\Illuminate\Http\Request $request) {
+    $secret = env('SETUP_SECRET', '');
+    if (!$secret || $request->header('X-Setup-Secret') !== $secret) {
+        return response()->json(['message' => 'Unauthorized'], 401);
+    }
+
+    $output = [];
+
+    Artisan::call('migrate', ['--force' => true]);
+    $output['migrate'] = Artisan::output();
+
+    if ($request->boolean('seed', false)) {
+        Artisan::call('db:seed', ['--force' => true]);
+        $output['seed'] = Artisan::output();
+    }
+
+    Artisan::call('config:cache');
+    Artisan::call('route:cache');
+
+    return response()->json(['message' => 'Setup complete', 'output' => $output]);
+});
 
 Route::prefix('auth')->group(function () {
     Route::post('register', [AuthController::class, 'register']);
