@@ -24,7 +24,13 @@
       "Bash(taskkill /F /IM node.exe)",
       "Bash(cmd /c \"start /min cmd /c \\\\\"cd /d D:\\\\Infodation\\\\Claude\\\\Coding\\\\Source\\\\ags_fe && npm run dev\\\\\"\")",
       "PowerShell(Stop-Process -Force)",
-      "PowerShell(Start-Process -FilePath \"cmd.exe\" -ArgumentList \"/c cd /d `\"D:\\\\Infodation\\\\Claude\\\\Coding\\\\Source\\\\ags_fe`\" && npm run dev\" -WindowStyle Normal)"
+      "PowerShell(Start-Process -FilePath \"cmd.exe\" -ArgumentList \"/c cd /d `\"D:\\\\Infodation\\\\Claude\\\\Coding\\\\Source\\\\ags_fe`\" && npm run dev\" -WindowStyle Normal)",
+      "Bash(curl -s http://localhost:8000/api/auth/login -X POST -H \"Content-Type: application/json\" -d \"{\\\\\"email\\\\\":\\\\\"admin@gps.test\\\\\",\\\\\"password\\\\\":\\\\\"password\\\\\"}\")",
+      "Bash(php -r ' *)",
+      "Bash(python -m json.tool)",
+      "Bash(docker build *)",
+      "Bash(taskkill /F /IM php.exe)",
+      "PowerShell(cd \"D:\\\\Infodation\\\\Claude\\\\Coding\\\\Source\\\\ags_api\"; $env:DB_CONNECTION=\"mysql\"; $env:DB_HOST=\"34.142.156.60\"; $env:DB_PORT=\"3306\"; $env:DB_DATABASE=\"gps\"; $env:DB_USERNAME=\"root\"; $env:DB_PASSWORD=\"a4``S2yy,jU:VO,YM\"; php artisan db:seed --force 2>&1)"
     ]
   }
 }
