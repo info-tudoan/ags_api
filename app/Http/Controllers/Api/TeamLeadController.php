@@ -86,7 +86,7 @@ class TeamLeadController
     public function updateShift(Request $request, Shift $shift): JsonResponse
     {
         $user = auth()->user();
-        if ($shift->team_lead_id !== $user->id) {
+        if ($user->role !== 'admin' && $shift->team_lead_id !== $user->id) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -106,7 +106,7 @@ class TeamLeadController
     public function assignEmployees(Request $request, Shift $shift): JsonResponse
     {
         $user = auth()->user();
-        if ($shift->team_lead_id !== $user->id) {
+        if ($user->role !== 'admin' && $shift->team_lead_id !== $user->id) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
