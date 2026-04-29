@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Shift extends Model
 {
-    protected $fillable = ['shift_template_id', 'shift_date', 'name', 'team_lead_id'];
+    protected $fillable = ['shift_template_id', 'shift_date', 'name', 'team_lead_id', 'start_time', 'end_time'];
     protected $casts = ['shift_date' => 'date'];
 
     public function template(): BelongsTo

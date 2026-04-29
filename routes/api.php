@@ -56,12 +56,14 @@ Route::middleware('auth:api')->group(function () {
         Route::get('shifts/upcoming', [EmployeeController::class, 'upcomingShifts']);
     });
 
-    Route::middleware('role:team_lead,admin')->prefix('team-lead')->group(function () {
+    Route::middleware('role:team_lead,shift_manager,admin')->prefix('team-lead')->group(function () {
         Route::post('shifts', [TeamLeadController::class, 'createShifts']);
         Route::get('shifts', [TeamLeadController::class, 'listShifts']);
         Route::get('shifts/{shift}', [TeamLeadController::class, 'getShift']);
         Route::patch('shifts/{shift}', [TeamLeadController::class, 'updateShift']);
+        Route::delete('shifts/{shift}', [TeamLeadController::class, 'deleteShift']);
         Route::post('shifts/{shift}/assign-employees', [TeamLeadController::class, 'assignEmployees']);
+        Route::delete('shifts/{shift}/employees/{userId}', [TeamLeadController::class, 'unassignEmployee']);
         Route::get('attendance', [TeamLeadController::class, 'teamAttendance']);
         Route::get('attendance/{userId}', [TeamLeadController::class, 'memberAttendance']);
         Route::patch('exceptions/{exception}/confirm', [TeamLeadController::class, 'confirmException']);

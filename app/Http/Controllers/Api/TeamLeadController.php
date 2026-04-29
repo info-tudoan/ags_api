@@ -19,30 +19,41 @@ class TeamLeadController
     public function createShifts(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'shift_template_id' => 'required|exists:shift_templates,id',
-            'start_date' => 'required|date',
-            'end_date' => 'required|date|after_or_equal:start_date',
-            'name' => 'nullable|string|max:255',
+            'shift_template_id' => 'nullable|exists:shift_templates,id',
+            'start_date'        => 'required|date',
+            'end_date'          => 'required|date|after_or_equal:start_date',
+            'name'              => 'nullable|string|max:255',
+            'start_time'        => 'nullable|date_format:H:i',   // custom time override
+            'end_time'          => 'nullable|date_format:H:i',
         ]);
+
+        // Must have either a template OR both custom times
+        if (empty($validated['shift_template_id']) && (empty($validated['start_time']) || empty($validated['end_time']))) {
+            return response()->json([
+                'message' => 'Cần cung cấp mẫu ca (shift_template_id) hoặc thời gian bắt đầu/kết thúc (start_time, end_time)',
+            ], 422);
+        }
 
         $user = auth()->user();
         $startDate = \Carbon\Carbon::parse($validated['start_date']);
-        $endDate = \Carbon\Carbon::parse($validated['end_date']);
-        $created = 0;
+        $endDate   = \Carbon\Carbon::parse($validated['end_date']);
+        $created   = 0;
 
         for ($date = $startDate->copy(); $date <= $endDate; $date->addDay()) {
             Shift::create([
-                'shift_template_id' => $validated['shift_template_id'],
-                'shift_date' => $date,
-                'name' => $validated['name'] ?? null,
-                'team_lead_id' => $user->id,
+                'shift_template_id' => $validated['shift_template_id'] ?? null,
+                'shift_date'        => $date,
+                'name'              => $validated['name'] ?? null,
+                'start_time'        => $validated['start_time'] ?? null,
+                'end_time'          => $validated['end_time'] ?? null,
+                'team_lead_id'      => $user->id,
             ]);
             $created++;
         }
 
         return response()->json([
             'message' => "{$created} shifts created successfully",
-            'count' => $created,
+            'count'   => $created,
         ], 201);
     }
 
@@ -50,7 +61,7 @@ class TeamLeadController
     {
         $user = auth()->user();
         // Admin and HR can see all shifts; team_lead sees only their own
-        $query = ($user->role === 'admin' || $user->role === 'hr')
+        $query = in_array($user->role, ['admin', 'hr'])
             ? Shift::query()
             : Shift::where('team_lead_id', $user->id);
 
@@ -91,16 +102,49 @@ class TeamLeadController
         }
 
         $validated = $request->validate([
-            'shift_template_id' => 'required|exists:shift_templates,id',
-            'shift_date' => 'required|date',
+            'shift_template_id' => 'nullable|exists:shift_templates,id',
+            'shift_date'        => 'nullable|date',
+            'name'              => 'nullable|string|max:255',
+            'start_time'        => 'nullable|date_format:H:i',
+            'end_time'          => 'nullable|date_format:H:i',
         ]);
 
-        $shift->update($validated);
+        $shift->update(array_filter($validated, fn($v) => $v !== null));
 
         return response()->json([
             'message' => 'Shift updated',
-            'shift' => $shift->load(['template', 'assignments']),
+            'shift'   => $shift->load(['template', 'assignments']),
         ]);
+    }
+
+    public function deleteShift(Shift $shift): JsonResponse
+    {
+        $user = auth()->user();
+        if ($user->role !== 'admin' && $shift->team_lead_id !== $user->id) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        // Delete assignments first (no cascade), then shift
+        $shift->assignments()->delete();
+        $shift->delete();
+
+        return response()->json(['message' => 'Shift deleted']);
+    }
+
+    public function unassignEmployee(Shift $shift, int $userId): JsonResponse
+    {
+        $user = auth()->user();
+        if ($user->role !== 'admin' && $shift->team_lead_id !== $user->id) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        $deleted = ShiftAssignment::where('shift_id', $shift->id)
+            ->where('user_id', $userId)
+            ->delete();
+
+        return response()->json([
+            'message' => $deleted ? 'Employee unassigned' : 'Assignment not found',
+        ], $deleted ? 200 : 404);
     }
 
     public function assignEmployees(Request $request, Shift $shift): JsonResponse

@@ -23,14 +23,36 @@ class EmployeeController
     public function dashboard(): JsonResponse
     {
         $user = auth()->user();
+
         $todayAssignment = ShiftAssignment::where('user_id', $user->id)
             ->whereHas('shift', function ($q) {
                 $q->whereDate('shift_date', today());
             })
+            ->with(['shift.template', 'zone'])
             ->first();
+
+        // Build flat shift object for mobile dashboard
+        $shiftData = null;
+        if ($todayAssignment) {
+            $shift    = $todayAssignment->shift;
+            $template = $shift?->template;
+            $zone     = $todayAssignment->zone;
+
+            $shiftData = [
+                'assignment_id' => $todayAssignment->id,
+                'shift_id'      => $shift?->id,
+                'name'          => $shift?->name ?? $template?->name ?? 'Ca Làm Việc',
+                'start_time'    => $shift?->start_time ?? $template?->start_time,
+                'end_time'      => $shift?->end_time   ?? $template?->end_time,
+                'shift_date'    => $shift?->shift_date,
+                'zone_name'     => $zone?->name,
+                'status'        => $todayAssignment->status,
+            ];
+        }
 
         $todayAttendance = AttendanceRecord::where('user_id', $user->id)
             ->whereDate('created_at', today())
+            ->latest()
             ->first();
 
         $currentLocation = LocationTracking::where('user_id', $user->id)
@@ -38,9 +60,10 @@ class EmployeeController
             ->first();
 
         return response()->json([
-            'user' => $user->only(['id', 'name', 'email', 'role']),
-            'assignment' => $todayAssignment,
-            'attendance' => $todayAttendance,
+            'user'             => $user->only(['id', 'name', 'email', 'role']),
+            'shift'            => $shiftData,         // ← mobile-friendly key
+            'assignment'       => $todayAssignment,   // ← keep for backward compat
+            'attendance'       => $todayAttendance,
             'current_location' => $currentLocation,
         ]);
     }
@@ -59,8 +82,16 @@ class EmployeeController
         $user = auth()->user();
         $assignment = ShiftAssignment::find($validated['shift_assignment_id']);
 
+        if (!$assignment) {
+            return response()->json([
+                'message' => 'Bạn hiện không có ca làm việc được phân công cho hôm nay. Nếu bạn đang làm việc ngoài kế hoạch, vui lòng liên hệ ca trưởng hoặc trưởng phòng của bạn để được xác nhận ca làm việc.',
+            ], 422);
+        }
+
         if ($assignment->user_id !== $user->id) {
-            return response()->json(['message' => 'Unauthorized'], 403);
+            return response()->json([
+                'message' => 'Ca làm việc này không được phân công cho bạn. Vui lòng liên hệ ca trưởng.',
+            ], 403);
         }
 
         $violations = $this->antiSpoofService->runFullValidation(
